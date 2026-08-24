@@ -8,7 +8,7 @@ Pure TypeScript, no runtime dependencies. Node 18+ (native `fetch`), ESM and CJS
 types included.
 
 > **Not on npm yet.** Install from source — see below. The published name will be
-> `@pixilab/smartdisk`.
+> `@fy-/smartdisk`.
 
 ## Install
 
@@ -35,7 +35,7 @@ is shown once — store it like a password.
 Import something, retrieve context, ask a question.
 
 ```ts
-import { SmartDisk } from "@pixilab/smartdisk";
+import { SmartDisk } from "@fy-/smartdisk";
 
 const client = new SmartDisk({ apiKey: process.env.SMARTDISK_API_KEY });
 const disk = await client.disks.create({ name: "support-bot", slug: "support-bot" });
@@ -127,7 +127,7 @@ Every failure is a `SmartDiskError` subclass carrying the server's machine-reada
 `code`, so you branch on the code rather than on prose.
 
 ```ts
-import { SmartDiskNotFoundError, SmartDiskTooLargeError } from "@pixilab/smartdisk";
+import { SmartDiskNotFoundError, SmartDiskTooLargeError } from "@fy-/smartdisk";
 
 try {
   await client.tools.export(disk);

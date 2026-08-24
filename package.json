@@ -1,7 +1,7 @@
 {
-  "name": "@pixilab/smartdisk",
+  "name": "@fy-/smartdisk",
   "version": "0.1.0",
-  "description": "Official TypeScript SDK for the SmartDisk memory engine — import conversations and documents, retrieve grounded context, ask cited questions.",
+  "description": "Official TypeScript SDK for the SmartDisk memory engine \u2014 import conversations and documents, retrieve grounded context, ask cited questions.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -53,5 +53,8 @@
     "tsup": "^8.3.0",
     "typescript": "^5.5.0",
     "vitest": "^2.1.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

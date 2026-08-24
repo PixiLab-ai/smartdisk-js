@@ -2,7 +2,7 @@
  * smartdisk — the official TypeScript SDK for the SmartDisk memory engine.
  *
  * ```ts
- * import { SmartDisk } from "@pixilab/smartdisk";
+ * import { SmartDisk } from "@fy-/smartdisk";
  *
  * const client = new SmartDisk({ apiKey: process.env.SMARTDISK_API_KEY });
  * const disk = await client.disks.create({ name: "support-bot" });
