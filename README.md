@@ -61,7 +61,7 @@ retrievable.
 ```ts
 const client = new SmartDisk({
   apiKey: "sd_…",                  // or SMARTDISK_API_KEY
-  baseUrl: "https://…/api",        // or SMARTDISK_BASE — for a self-hosted server
+  baseUrl: "https://…/api",        // or SMARTDISK_BASE — staging/tests only; default is the hosted API
   timeoutMs: 60_000,               // per request; imports and answers raise it themselves
   retry: { maxRetries: 2, initialDelayMs: 500, maxDelayMs: 8_000 },
   headers: { "X-Trace": "…" },

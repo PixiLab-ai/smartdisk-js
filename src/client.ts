@@ -26,7 +26,7 @@ export interface SmartDiskOptions {
    * to `process.env.SMARTDISK_API_KEY`.
    */
   apiKey?: string;
-  /** Override for a self-hosted server. Falls back to `process.env.SMARTDISK_BASE`. */
+  /** Override for a staging or test deployment. Falls back to `process.env.SMARTDISK_BASE`, then the hosted API. */
   baseUrl?: string;
   /** Per-request timeout in ms. Default 60000. Imports and answers raise it themselves. */
   timeoutMs?: number;

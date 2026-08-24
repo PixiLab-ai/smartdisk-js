@@ -13,7 +13,7 @@ import {
   type SmartDiskErrorBody,
 } from "./errors.js";
 
-/** The hosted API. Point `baseUrl` elsewhere for a self-hosted server. */
+/** The hosted API — the only production endpoint. `baseUrl` overrides exist for staging/tests. */
 export const DEFAULT_BASE_URL = "https://smartdisk.pixilab.ai/_special/rest/Pixi/api";
 
 /** Anything `globalThis.fetch` accepts. Injectable so tests never touch a socket. */

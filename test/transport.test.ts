@@ -15,7 +15,7 @@ describe("construction", () => {
     expect(DEFAULT_BASE_URL).toBe(BASE);
   });
 
-  it("accepts a self-hosted base URL and trims its trailing slash", async () => {
+  it("accepts a custom base URL and trims its trailing slash", async () => {
     const { client, http } = makeClient({ baseUrl: "https://memory.example.test/api/" });
     http.push({ body: { disks: [] } });
     await client.disks.list();
