@@ -9,6 +9,7 @@ import {
   SmartDiskConnectionError,
   SmartDiskTimeoutError,
   errorFromResponse,
+  type SmartDiskError,
   type SmartDiskErrorBody,
 } from "./errors.js";
 
@@ -50,7 +51,6 @@ export interface RequestOptions {
   raw?: boolean;
   /** Override the client timeout for one slow call (imports, answers). */
   timeoutMs?: number;
-  signal?: AbortSignal;
 }
 
 /**
@@ -101,11 +101,10 @@ export class Transport {
 
     for (;;) {
       const controller = new AbortController();
-      const abortOuter = () => controller.abort(options.signal?.reason);
-      options.signal?.addEventListener("abort", abortOuter, { once: true });
       const timer = setTimeout(() => controller.abort(new TimeoutMarker()), timeoutMs);
 
-      let response: Response;
+      let response: Response | undefined;
+      let networkFailure: SmartDiskError | undefined;
       try {
         response = await this.fetchImpl(url, {
           method: options.method,
@@ -114,15 +113,17 @@ export class Transport {
           signal: controller.signal,
         });
       } catch (cause) {
-        const failure = this.wrapNetworkFailure(cause, options, url, timeoutMs);
-        if (failure instanceof SmartDiskTimeoutError && options.signal?.aborted) throw failure;
+        networkFailure = this.wrapNetworkFailure(cause, options, url, timeoutMs);
+      } finally {
+        clearTimeout(timer);
+      }
+
+      if (networkFailure || !response) {
+        const failure = networkFailure ?? new SmartDiskConnectionError(`${options.method} ${url} — no response`);
         if (attempt >= this.maxRetries) throw failure;
         attempt += 1;
         await sleep(this.backoff(attempt));
         continue;
-      } finally {
-        clearTimeout(timer);
-        options.signal?.removeEventListener("abort", abortOuter);
       }
 
       if (response.ok) {
