@@ -1,0 +1,57 @@
+{
+  "name": "@pixilab/smartdisk",
+  "version": "0.1.0",
+  "description": "Official TypeScript SDK for the SmartDisk memory engine — import conversations and documents, retrieve grounded context, ask cited questions.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "smartdisk",
+    "memory",
+    "rag",
+    "retrieval",
+    "agent",
+    "llm",
+    "knowledge-graph"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PixiLab-ai/smartdisk-js.git"
+  },
+  "homepage": "https://smartdisk.pixilab.ai/docs",
+  "bugs": {
+    "url": "https://github.com/PixiLab-ai/smartdisk-js/issues"
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run typecheck && npm run test && npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.1.0"
+  }
+}
