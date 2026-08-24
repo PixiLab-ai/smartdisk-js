@@ -7,24 +7,17 @@ engine. You give it conversations and documents; it organises them into a search
 Pure TypeScript, no runtime dependencies. Node 18+ (native `fetch`), ESM and CJS,
 types included.
 
-> **Not on npm yet.** Install from source — see below. The published name will be
-> `@fy-/smartdisk`.
-
 ## Install
 
 ```bash
-git clone https://github.com/PixiLab-ai/smartdisk-js.git
-cd smartdisk-js
-npm install
-npm run build
+npm install @fy-/smartdisk
 ```
 
-Then depend on the folder, or pack it:
+Or from source:
 
 ```bash
-npm install /path/to/smartdisk-js      # local path
-# or
-npm pack && npm install ./pixilab-smartdisk-0.1.0.tgz
+git clone https://github.com/PixiLab-ai/smartdisk-js.git
+cd smartdisk-js && npm install && npm run build
 ```
 
 You need an API key from the [API keys](https://smartdisk.pixilab.ai/keys) page. It
