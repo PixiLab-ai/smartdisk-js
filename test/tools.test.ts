@@ -64,6 +64,16 @@ describe("tools.export", () => {
     expect(graph.disk_name).toBe("Research");
   });
 
+  it("peels an envelope a proxy wrapped the download in", async () => {
+    // The server sends the file bare (the test above); some deployments wrap it
+    // in the standard REST envelope. Both shapes reach the caller as the graph.
+    const { client, http } = makeClient();
+    http.push({ body: { disk: DISK_UUID, exported_at: "t", facts: [{ uuid: "f1" }], edges: [] } });
+    const graph = await client.tools.export(DISK_UUID);
+    expect(graph.facts?.[0]?.uuid).toBe("f1");
+    expect((graph as unknown as Record<string, unknown>).result).toBeUndefined();
+  });
+
   it("maps a 413 to a too-large error carrying its limits", async () => {
     const { client, http } = makeClient();
     http.push({ status: 413, body: { error: "too_large", facts_total: 40123, max_facts: 20000, detail: "narrow it" } });

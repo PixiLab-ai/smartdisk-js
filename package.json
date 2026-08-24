@@ -1,6 +1,6 @@
 {
   "name": "@fy-/smartdisk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Official TypeScript SDK for the SmartDisk memory engine \u2014 import conversations and documents, retrieve grounded context, ask cited questions.",
   "license": "MIT",
   "type": "module",

@@ -56,6 +56,31 @@ export class SmartDiskConnectionError extends SmartDiskError {}
 /** The request was still running when the timeout expired. */
 export class SmartDiskTimeoutError extends SmartDiskError {}
 
+/**
+ * `imports.waitUntilProcessed` gave up: the disk had not settled within its
+ * timeout. It names what was still outstanding, so a caller can report it
+ * without polling again. Distinct from `SmartDiskTimeoutError`, which is one
+ * HTTP request running long.
+ */
+export class SmartDiskWaitTimeoutError extends SmartDiskError {
+  /** Sources that had not reached `processed`. */
+  readonly pending: number;
+  /** Sources the disk holds. */
+  readonly total: number;
+  /** Whether the disk-level consolidation pass was still running. */
+  readonly consolidating: boolean;
+
+  constructor(
+    message: string,
+    init: SmartDiskErrorInit & { pending?: number; total?: number; consolidating?: boolean } = {},
+  ) {
+    super(message, init);
+    this.pending = init.pending ?? 0;
+    this.total = init.total ?? 0;
+    this.consolidating = init.consolidating ?? false;
+  }
+}
+
 /** 400 — malformed request: `invalid_json`, `empty_text`, `bad_pattern`, … */
 export class SmartDiskBadRequestError extends SmartDiskError {}
 
@@ -151,7 +176,11 @@ export function errorFromResponse(args: {
   retryAfter?: number;
 }): SmartDiskError {
   const { status, body, method, url } = args;
-  const code = typeof body.error === "string" ? body.error : "";
+  let code = typeof body.error === "string" ? body.error : "";
+  if (!code && typeof body.message === "string" && /^[a-z0-9_.-]{2,64}$/.test(body.message)) {
+    // Some deployments carry the machine code in "message" instead of "error".
+    code = body.message;
+  }
   const detail = typeof body.detail === "string" ? body.detail : "";
   const explained = MESSAGES[code];
   const head = explained ?? (code ? `the server refused the call: ${code}` : `HTTP ${status}`);

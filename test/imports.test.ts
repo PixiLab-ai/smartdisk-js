@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { SmartDiskUnprocessableError, SmartDiskUsageError } from "../src/index.js";
+import {
+  SmartDiskError,
+  SmartDiskUnprocessableError,
+  SmartDiskUsageError,
+  SmartDiskWaitTimeoutError,
+} from "../src/index.js";
 import { DISK_UUID, makeClient } from "./helpers.js";
 
 const MESSAGES = [
@@ -147,5 +152,88 @@ describe("ocr", () => {
   it("requires the image bytes", async () => {
     const { client } = makeClient();
     await expect(client.ocr({ image_b64: "" })).rejects.toThrow(SmartDiskUsageError);
+  });
+});
+
+describe("imports.waitUntilProcessed", () => {
+  const listing = (status: string, consolidating = false) => ({
+    body: { contents: [{ uuid: "a", name: "thread", status }], consolidating },
+  });
+
+  it("returns once the disk reads clear on two consecutive polls", async () => {
+    const { client, http } = makeClient();
+    http.push(listing("processing"), listing("processed"), listing("processed"));
+    const result = await client.imports.waitUntilProcessed(DISK_UUID, { pollIntervalMs: 0 });
+    expect(http.calls.length).toBe(3);
+    expect(http.last.path).toBe(`sd/disks/${DISK_UUID}/contents`);
+    expect(result.contents[0]?.status).toBe("processed");
+  });
+
+  it("does not return on a single clear poll", async () => {
+    // Clear, then consolidating again — the flag flaps between sub-passes. The
+    // wait has to still be running, which the third poll, and the failure it
+    // finds there, proves.
+    const { client, http } = makeClient();
+    http.push(listing("processed"), listing("processed", true), {
+      body: { contents: [{ uuid: "a", name: "broken.pdf", status: "failed" }] },
+    });
+    await expect(client.imports.waitUntilProcessed(DISK_UUID, { pollIntervalMs: 0 })).rejects.toThrow(
+      /broken\.pdf/,
+    );
+    expect(http.calls.length).toBe(3);
+  });
+
+  it("waits out consolidation by default, and can be told not to", async () => {
+    const { client, http } = makeClient();
+    http.push(listing("processed", true), listing("processed", true));
+    await client.imports.waitUntilProcessed(DISK_UUID, { pollIntervalMs: 0, skipConsolidation: true });
+    expect(http.calls.length).toBe(2);
+
+    const second = makeClient();
+    second.http.push(listing("processed", true), listing("processed"), listing("processed"));
+    await second.client.imports.waitUntilProcessed(DISK_UUID, { pollIntervalMs: 0 });
+    expect(second.http.calls.length).toBe(3);
+  });
+
+  it("throws a typed timeout naming how many are still pending", async () => {
+    const { client, http } = makeClient();
+    http.always({
+      body: {
+        contents: [
+          { uuid: "a", status: "queued" },
+          { uuid: "b", status: "processed" },
+        ],
+        consolidating: true,
+      },
+    });
+    const failure = await client.imports
+      .waitUntilProcessed(DISK_UUID, { pollIntervalMs: 0, timeoutMs: 0 })
+      .catch((error) => error);
+    expect(failure).toBeInstanceOf(SmartDiskWaitTimeoutError);
+    expect(failure.pending).toBe(1);
+    expect(failure.total).toBe(2);
+    expect(failure.consolidating).toBe(true);
+    expect(failure.message).toContain("1 of 2 source(s) still pending");
+  });
+
+  it("raises on a failed source rather than waiting for it", async () => {
+    const { client, http } = makeClient();
+    http.push({ body: { contents: [{ uuid: "a", name: "broken.pdf", status: "failed" }] } });
+    const failure = await client.imports
+      .waitUntilProcessed(DISK_UUID, { pollIntervalMs: 0 })
+      .catch((error) => error);
+    expect(failure).toBeInstanceOf(SmartDiskError);
+    expect(failure.message).toContain("broken.pdf");
+  });
+
+  it("reports progress only when the line changes", async () => {
+    const { client, http } = makeClient();
+    http.push(listing("processing"), listing("processed"), listing("processed"));
+    const seen: string[] = [];
+    await client.imports.waitUntilProcessed(DISK_UUID, {
+      pollIntervalMs: 0,
+      onProgress: (status) => seen.push(status),
+    });
+    expect(seen).toEqual(["0/1 processed", "1/1 processed"]);
   });
 });

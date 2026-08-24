@@ -7,6 +7,7 @@
 import type { ClientContext } from "./internal.js";
 import { compact, required, slugOf } from "./internal.js";
 import type {
+  ContentsResponse,
   DiskRef,
   ImportChatParams,
   ImportChatResponse,
@@ -16,12 +17,23 @@ import type {
   ImportUrlParams,
   ImportUrlResponse,
   RetryResponse,
+  WaitUntilProcessedOptions,
 } from "./types.js";
-import { SmartDiskUsageError } from "./errors.js";
+import { SmartDiskError, SmartDiskUsageError, SmartDiskWaitTimeoutError } from "./errors.js";
 
 /** Imports and URL fetches can take a while; give them room over the default. */
 const IMPORT_TIMEOUT_MS = 180_000;
 const URL_TIMEOUT_MS = 240_000;
+
+/** Defaults for {@link Imports.waitUntilProcessed}. */
+const WAIT_POLL_INTERVAL_MS = 5_000;
+const WAIT_TIMEOUT_MS = 600_000;
+/**
+ * How many consecutive clear polls end a wait. Consolidation runs in sub-passes
+ * and its flag reads false *between* them, so one clear poll is not quiescence —
+ * two consecutive ones are.
+ */
+const WAIT_CLEAR_POLLS = 2;
 
 export class Imports {
   constructor(private readonly ctx: ClientContext) {}
@@ -134,4 +146,79 @@ export class Imports {
       path: `sd/disks/${uuid}/contents/${cuuid}/retry`,
     });
   }
+
+  /**
+   * Wait until the disk has settled: every source processed, and the
+   * disk-level consolidation pass finished.
+   *
+   * Import is asynchronous in two stages. Per-source processing moves each
+   * content `queued → processing → processed`; then a disk-level pass
+   * consolidates the facts and supersedes whatever a newer source replaced.
+   * Anything that reads memory before both are done reads a half-built disk.
+   *
+   * The second stage is why this needs a quiescence window rather than a single
+   * check: consolidation runs in sub-passes and `consolidating` reads false
+   * *between* them, so the disk has to look clear on two consecutive polls
+   * before this resolves.
+   *
+   * Throws a `SmartDiskWaitTimeoutError` — naming how many sources were still
+   * pending — when the deadline passes, and a `SmartDiskError` when a source
+   * ends `failed`.
+   */
+  async waitUntilProcessed(
+    disk: DiskRef,
+    options: WaitUntilProcessedOptions = {},
+  ): Promise<ContentsResponse> {
+    const pollIntervalMs = options.pollIntervalMs ?? WAIT_POLL_INTERVAL_MS;
+    const timeoutMs = options.timeoutMs ?? WAIT_TIMEOUT_MS;
+    const uuid = await this.ctx.diskUuid(disk);
+    const deadline = Date.now() + timeoutMs;
+
+    let previous = "";
+    let clear = 0;
+
+    for (;;) {
+      const listing = await this.ctx.transport.request<ContentsResponse>({
+        method: "GET",
+        path: `sd/disks/${uuid}/contents`,
+      });
+      const contents = listing?.contents ?? [];
+      const consolidating = listing?.consolidating === true;
+
+      const failed = contents.filter((row) => row.status === "failed");
+      if (failed.length > 0) {
+        const names = failed
+          .slice(0, 5)
+          .map((row) => row.name || row.uuid)
+          .join(", ");
+        throw new SmartDiskError(`${failed.length} source(s) failed to process: ${names}`);
+      }
+
+      const done = contents.filter((row) => row.status === "processed").length;
+      const status = `${done}/${contents.length} processed${consolidating ? ", consolidating" : ""}`;
+      if (options.onProgress && status !== previous) {
+        options.onProgress(status);
+        previous = status;
+      }
+
+      const settled =
+        contents.length > 0 && done === contents.length && (options.skipConsolidation === true || !consolidating);
+      clear = settled ? clear + 1 : 0;
+      if (clear >= WAIT_CLEAR_POLLS) return listing;
+
+      if (Date.now() >= deadline) {
+        const pending = contents.length - done;
+        throw new SmartDiskWaitTimeoutError(
+          `the disk had not settled after ${timeoutMs}ms: ${pending} of ${contents.length} source(s) still pending` +
+            (consolidating ? ", disk still consolidating" : ""),
+          { pending, total: contents.length, consolidating },
+        );
+      }
+      await sleep(pollIntervalMs);
+    }
+  }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

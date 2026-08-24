@@ -100,6 +100,33 @@ describe("error mapping", () => {
     expect(failure.url).toContain(`sd/disks/${DISK_UUID}/memory`);
   });
 
+  it("types the proxy error envelope by the code in its message", async () => {
+    // A proxy realm answers {"data": null, "result": "error", "message": "<code>"}:
+    // the machine code sits beside "data", not inside it, and "data" is a
+    // literal null rather than an object to reach into.
+    const { client, http } = makeClient();
+    http.push({
+      status: 404,
+      raw: JSON.stringify({
+        data: null,
+        result: "error",
+        message: "disk_not_found",
+        token: "err_proxy_service",
+      }),
+    });
+    const failure = await client.memory.facts(DISK_UUID).catch((error) => error);
+    expect(failure).toBeInstanceOf(SmartDiskNotFoundError);
+    expect(failure.code).toBe("disk_not_found");
+  });
+
+  it("does not mistake a human sentence in message for a code", async () => {
+    const { client, http } = makeClient();
+    http.push({ status: 500, raw: JSON.stringify({ result: "error", message: "Something went badly wrong." }) });
+    const failure = await client.memory.facts(DISK_UUID).catch((error) => error);
+    expect(failure).toBeInstanceOf(SmartDiskServerError);
+    expect(failure.code).toBe("");
+  });
+
   it("every error is a SmartDiskError", async () => {
     const { client, http } = makeClient();
     http.push({ status: 418, body: { error: "teapot" } });

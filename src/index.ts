@@ -25,6 +25,7 @@ export {
   SmartDiskUsageError,
   SmartDiskConnectionError,
   SmartDiskTimeoutError,
+  SmartDiskWaitTimeoutError,
   SmartDiskBadRequestError,
   SmartDiskAuthenticationError,
   SmartDiskPermissionError,

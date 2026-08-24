@@ -611,6 +611,21 @@ export interface ReadSourceResponse {
   truncated: boolean;
 }
 
+export interface WaitUntilProcessedOptions {
+  /** Gap between contents polls, in ms. Default 5000. */
+  pollIntervalMs?: number;
+  /** Ceiling on the whole wait, in ms. Default 600000 (10 minutes). */
+  timeoutMs?: number;
+  /**
+   * Return as soon as every source is processed, without waiting out the
+   * disk-level fact pass. Faster, and less complete: the facts are there, the
+   * supersessions may not be.
+   */
+  skipConsolidation?: boolean;
+  /** Called with the status line whenever it changes. */
+  onProgress?: (status: string) => void;
+}
+
 export interface GrepOptions {
   /** Folder subtree to search. */
   path?: string;

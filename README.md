@@ -52,9 +52,33 @@ const { answer, citations } = await client.memory.ask(disk, "what does this cust
 console.log(answer);
 ```
 
-Processing is asynchronous: imported content moves `queued → processing → processed`.
-Poll it with `client.memory.contents(disk)` before expecting a fresh import to be
-retrievable.
+## Waiting for an import to land
+
+Import is asynchronous in two stages: each source moves `queued → processing →
+processed`, and then a disk-level pass consolidates the facts and supersedes whatever a
+newer source replaced. On a real server a twenty-message thread reaches `processed` in
+about a minute and its supersessions land another 6–16 seconds after that, so a
+retrieval taken in between reads a half-built disk.
+
+`imports.waitUntilProcessed` waits out both. Consolidation runs in sub-passes and
+`consolidating` reads false *between* them, so the disk has to look clear on **two
+consecutive polls** before the call resolves:
+
+```ts
+await client.imports.waitUntilProcessed(disk); // 5s polls, 10min ceiling
+
+await client.imports.waitUntilProcessed(disk, {
+  pollIntervalMs: 2000,
+  timeoutMs: 300_000,
+  onProgress: (status) => console.log(status), // "12/20 processed, consolidating"
+});
+```
+
+It throws a `SmartDiskWaitTimeoutError` — carrying `pending`, `total` and
+`consolidating` — when the deadline passes, and a `SmartDiskError` when a source ends
+`failed`. `skipConsolidation: true` returns as soon as every source is processed:
+faster, and less complete — the facts are there, the supersessions may not be.
+`client.memory.contentsEnvelope(disk)` is the raw status view underneath.
 
 ## Configuration
 
@@ -173,6 +197,7 @@ Every method maps 1:1 to one documented route.
 | `url(diskRef, params)` | `POST /sd/disks/:uuid/import/url` | Fetch a page, or a video's transcript. |
 | `cursor(diskRef)` | `GET /sd/disks/:uuid/import/last` | Where an incremental sync left off. |
 | `retry(diskRef, contentUuid)` | `POST /sd/disks/:uuid/contents/:cuuid/retry` | Re-queue a failed source. |
+| `waitUntilProcessed(diskRef, opts?)` | polls `GET /sd/disks/:uuid/contents` | Block until the disk has settled — everything processed, nothing consolidating. |
 
 ### `client` (top level)
 
